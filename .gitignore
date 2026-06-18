@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.env
+
+# ZK proving keys (large binary files)
+src/proof/circuits/*.wasm
+src/proof/circuits/*.zkey
+src/proof/circuits/*.r1cs
+src/proof/circuits/*.sym
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
