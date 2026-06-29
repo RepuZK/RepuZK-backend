@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { IssuerModule } from './issuer/issuer.module';
 import { CredentialModule } from './credential/credential.module';
 import { ProofModule } from './proof/proof.module';
+import { MarketplaceModule } from './marketplace/marketplace.module';
 import { ReputationModule } from './reputation/reputation.module';
 import { StellarModule } from './stellar/stellar.module';
 import { RedisModule } from './common/redis/redis.module';
@@ -40,6 +41,7 @@ import { Verification } from './common/database/entities/verification.entity';
     CredentialModule,
     ProofModule,
     ReputationModule,
+    MarketplaceModule,
   ],
 })
 export class AppModule {}

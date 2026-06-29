@@ -216,4 +216,45 @@ export class StellarService {
       nativeToScVal(zkProofHash, { type: 'bytes' }),
     ]);
   }
+
+  async getListing(listingId: bigint): Promise<any> {
+    return this.simulate(this.marketplaceId, 'get_listing', [
+      nativeToScVal(listingId, { type: 'u64' }),
+    ]);
+  }
+
+  async getActiveListings(category?: string, minScore?: number): Promise<any[]> {
+    const listings: any[] = await this.simulate(this.marketplaceId, 'get_active_listings', []);
+    if (category) return listings.filter((l: any) => l.category === category);
+    if (minScore) return listings.filter((l: any) => l.min_reputation_score >= minScore);
+    return listings;
+  }
+
+  async getBuyerOrders(buyer: string): Promise<any[]> {
+    return this.simulate(this.marketplaceId, 'get_buyer_orders', [
+      new Address(buyer).toScVal(),
+    ]);
+  }
+
+  async getSellerOrders(seller: string): Promise<any[]> {
+    return this.simulate(this.marketplaceId, 'get_seller_orders', [
+      new Address(seller).toScVal(),
+    ]);
+  }
+
+  async leaveFeedback(
+    reviewer: string,
+    orderId: bigint,
+    rating: number,
+    comment: string,
+    completionProof: string,
+  ): Promise<string> {
+    return this.invoke(this.marketplaceId, 'leave_feedback', [
+      new Address(reviewer).toScVal(),
+      nativeToScVal(orderId, { type: 'u64' }),
+      nativeToScVal(rating, { type: 'u32' }),
+      nativeToScVal(comment, { type: 'string' }),
+      nativeToScVal(completionProof, { type: 'string' }),
+    ]);
+  }
 }
