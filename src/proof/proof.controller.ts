@@ -1,6 +1,7 @@
 import { Controller, Post, Get, Param, Body, UseGuards, Request } from '@nestjs/common';
 import { IsString, IsNumber, IsOptional, IsObject } from 'class-validator';
 import { ProofService } from './proof.service';
+import { StellarService } from '../stellar/stellar.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
 class GenerateProofDto {
@@ -23,7 +24,10 @@ class RevokeProofDto {
 
 @Controller('proof')
 export class ProofController {
-  constructor(private readonly proofService: ProofService) {}
+  constructor(
+    private readonly proofService: ProofService,
+    private readonly stellarService: StellarService,
+  ) {}
 
   @UseGuards(JwtAuthGuard)
   @Post('generate')
@@ -38,9 +42,22 @@ export class ProofController {
 
   @UseGuards(JwtAuthGuard)
   @Post('register')
-  register(@Request() req, @Body() dto: RegisterProofDto) {
-    // Manual on-chain registration (frontend-initiated after proof is ready)
-    return { message: 'Use /proof/generate which auto-submits on-chain via queue', dto };
+  async register(@Request() req, @Body() dto: RegisterProofDto) {
+    const proofHashBuf = Buffer.from(dto.proofHash.replace(/^0x/, ''), 'hex');
+    const credHashBuf = Buffer.from(dto.credentialHash.replace(/^0x/, ''), 'hex');
+
+    const txHash = await this.stellarService.registerProof(
+      req.user.address,
+      req.user.address, // issuer falls back to user; override via queue for full flow
+      proofHashBuf,
+      credHashBuf,
+      dto.credentialType,
+      dto.expiresAt ?? 0,
+      dto.metadataUri ?? '',
+    );
+
+    await this.proofService.updateStellarTxHash(dto.proofHash, txHash);
+    return { txHash };
   }
 
   @Get('user/:address')
