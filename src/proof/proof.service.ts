@@ -3,7 +3,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bull';
 import { Repository } from 'typeorm';
 import { Queue } from 'bull';
-import { createHash } from 'crypto';
 import { Proof } from '../common/database/entities/proof.entity';
 import { Credential } from '../common/database/entities/credential.entity';
 import { REDIS_CLIENT } from '../common/redis/redis.module';
