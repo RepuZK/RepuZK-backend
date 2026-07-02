@@ -8,7 +8,6 @@ import { REDIS_CLIENT } from '../common/redis/redis.module';
 import Redis from 'ioredis';
 
 // snarkjs is a CommonJS module
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const snarkjs = require('snarkjs');
 
 @Processor('proof-generation')
