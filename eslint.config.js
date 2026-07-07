@@ -30,4 +30,12 @@ module.exports = [
       '@typescript-eslint/no-require-imports': 'off',
     },
   },
+  {
+    files: ['**/*.spec.ts'],
+    languageOptions: {
+      globals: {
+        ...globals.jest,
+      },
+    },
+  },
 ];
