@@ -31,7 +31,7 @@ export class ProofService {
       payloadHash: credential.payloadHash,
     });
 
-    await this.redis.setex(`proof:status:${job.id}`, 3600, JSON.stringify({ status: 'pending' }));
+    await this.redis.setex(`proof:status:${job.id}`, 3600, JSON.stringify({ status: 'queued' }));
     return { jobId: job.id };
   }
 
