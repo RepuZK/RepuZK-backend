@@ -24,7 +24,7 @@ export class ProofGenerationProcessor {
     const { credentialId, circuitName, privateInputs, userAddress, issuerAddress, credentialType, payloadHash } = job.data;
 
     try {
-      await this.setStatus(job.id, { status: 'processing' });
+      await this.setStatus(job.id, { status: 'generating' });
 
       const circuitsDir = path.join(__dirname, 'circuits');
       const wasmPath = path.join(circuitsDir, `${circuitName}.wasm`);

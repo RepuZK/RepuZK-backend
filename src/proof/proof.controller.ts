@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Param, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Get, Param, Body, UseGuards, Request, HttpCode, HttpStatus } from '@nestjs/common';
 import { IsString, IsNumber, IsOptional, IsObject } from 'class-validator';
 import { ProofService } from './proof.service';
 import { StellarService } from '../stellar/stellar.service';
@@ -31,6 +31,7 @@ export class ProofController {
 
   @UseGuards(JwtAuthGuard)
   @Post('generate')
+  @HttpCode(HttpStatus.ACCEPTED)
   generate(@Body() dto: GenerateProofDto) {
     return this.proofService.generateProof(dto.credentialId, dto.circuitName, dto.privateInputs);
   }
