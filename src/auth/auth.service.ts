@@ -7,6 +7,13 @@ import { REDIS_CLIENT } from '../common/redis/redis.module';
 import Redis from 'ioredis';
 
 const CHALLENGE_TTL = 300; // 5 minutes
+const REFRESH_TOKEN_TTL = 7 * 24 * 60 * 60; // 7 days
+const REFRESH_TOKEN_PREFIX = 'refresh:';
+
+export interface TokenPair {
+  access_token: string;
+  refresh_token: string;
+}
 
 @Injectable()
 export class AuthService {
@@ -40,7 +47,29 @@ export class AuthService {
     }
 
     await this.redis.del(`challenge:${address}`);
+    return this.issueTokenPair(address);
+  }
+
+  async refresh(refreshToken: string): Promise<TokenPair> {
+    const key = `${REFRESH_TOKEN_PREFIX}${refreshToken}`;
+    const address = await this.redis.get(key);
+    if (!address) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    // Invalidate the used token immediately so it cannot be replayed.
+    await this.redis.del(key);
+    return this.issueTokenPair(address);
+  }
+
+  private async issueTokenPair(address: string): Promise<TokenPair> {
     const access_token = this.jwtService.sign({ sub: address, address });
-    return { access_token };
+    const refresh_token = uuidv4();
+    await this.redis.setex(
+      `${REFRESH_TOKEN_PREFIX}${refresh_token}`,
+      REFRESH_TOKEN_TTL,
+      address,
+    );
+    return { access_token, refresh_token };
   }
 }

@@ -12,6 +12,10 @@ class VerifyDto {
   @IsString() nonce: string;
 }
 
+class RefreshDto {
+  @IsString() refresh_token: string;
+}
+
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -24,5 +28,10 @@ export class AuthController {
   @Post('verify')
   verify(@Body() dto: VerifyDto) {
     return this.authService.verifySignature(dto.address, dto.signature, dto.nonce);
+  }
+
+  @Post('refresh')
+  refresh(@Body() dto: RefreshDto) {
+    return this.authService.refresh(dto.refresh_token);
   }
 }
