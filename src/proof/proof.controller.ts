@@ -1,25 +1,48 @@
 import { Controller, Post, Get, Param, Body, UseGuards, Request, HttpCode, HttpStatus } from '@nestjs/common';
-import { IsString, IsNumber, IsOptional, IsObject } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsObject, IsNotEmpty } from 'class-validator';
 import { ProofService } from './proof.service';
 import { StellarService } from '../stellar/stellar.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
 class GenerateProofDto {
-  @IsString() credentialId: string;
-  @IsString() circuitName: string;
-  @IsObject() privateInputs: object;
+  @IsString()
+  @IsNotEmpty()
+  credentialId: string;
+
+  @IsString()
+  @IsNotEmpty()
+  circuitName: string;
+
+  @IsObject()
+  privateInputs: object;
 }
 
 class RegisterProofDto {
-  @IsString() proofHash: string;
-  @IsString() credentialHash: string;
-  @IsString() credentialType: string;
-  @IsNumber() @IsOptional() expiresAt?: number;
-  @IsString() @IsOptional() metadataUri?: string;
+  @IsString()
+  @IsNotEmpty()
+  proofHash: string;
+
+  @IsString()
+  @IsNotEmpty()
+  credentialHash: string;
+
+  @IsString()
+  @IsNotEmpty()
+  credentialType: string;
+
+  @IsNumber()
+  @IsOptional()
+  expiresAt?: number;
+
+  @IsString()
+  @IsOptional()
+  metadataUri?: string;
 }
 
 class RevokeProofDto {
-  @IsString() proofHash: string;
+  @IsString()
+  @IsNotEmpty()
+  proofHash: string;
 }
 
 @Controller('proof')

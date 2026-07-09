@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bull';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from './auth/auth.module';
 import { IssuerModule } from './issuer/issuer.module';
 import { CredentialModule } from './credential/credential.module';
@@ -32,6 +33,17 @@ import { Verification } from './common/database/entities/verification.entity';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         redis: config.get('REDIS_URL'),
+      }),
+    }),
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        throttlers: [
+          {
+            ttl: parseInt(config.get('THROTTLE_TTL', '60'), 10),
+            limit: parseInt(config.get('THROTTLE_LIMIT', '10'), 10),
+          },
+        ],
       }),
     }),
     RedisModule,

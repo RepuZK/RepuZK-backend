@@ -12,16 +12,37 @@ export class CredentialService {
     private readonly config: ConfigService,
   ) {}
 
-  findByUser(userAddress: string) {
+  /**
+   * Retrieve all credentials issued to the given wallet address.
+   *
+   * @param userAddress - The Stellar public key of the credential holder.
+   * @returns An array of {@link Credential} records with their associated issuer loaded.
+   */
+  findByUser(userAddress: string): Promise<Credential[]> {
     return this.credRepo.find({ where: { userAddress }, relations: ['issuer'] });
   }
 
-  async findById(id: string) {
+  /**
+   * Fetch a single credential by its database UUID.
+   *
+   * @param id - UUID of the credential record.
+   * @returns The matching {@link Credential} with its issuer relation populated.
+   * @throws NotFoundException if no credential with the given ID exists.
+   */
+  async findById(id: string): Promise<Credential> {
     const c = await this.credRepo.findOne({ where: { id }, relations: ['issuer'] });
     if (!c) throw new NotFoundException('Credential not found');
     return c;
   }
 
+  /**
+   * Pin the credential's payload JSON to IPFS via Pinata and store the resulting CID
+   * back on the credential record.
+   *
+   * @param credentialId - UUID of the credential whose payload should be pinned.
+   * @returns An object containing the IPFS content identifier (`cid`).
+   * @throws NotFoundException if the credential does not exist.
+   */
   async uploadToIpfs(credentialId: string): Promise<{ cid: string }> {
     const credential = await this.findById(credentialId);
 

@@ -1,10 +1,12 @@
 import { Controller, Get, Post, Param, Body, UseGuards } from '@nestjs/common';
-import { IsString } from 'class-validator';
+import { IsString, IsNotEmpty } from 'class-validator';
 import { CredentialService } from './credential.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
 class UploadIpfsDto {
-  @IsString() credentialId: string;
+  @IsString()
+  @IsNotEmpty()
+  credentialId: string;
 }
 
 @Controller('credential')

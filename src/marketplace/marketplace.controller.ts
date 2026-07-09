@@ -1,29 +1,69 @@
 import { Controller, Get, Post, Param, Query, Body, UseGuards, Request } from '@nestjs/common';
-import { IsString, IsNumber, IsArray, IsOptional } from 'class-validator';
+import { IsString, IsNumber, IsArray, IsOptional, IsNotEmpty, ArrayNotEmpty, Min, Max } from 'class-validator';
 import { MarketplaceService } from './marketplace.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
 class CreateListingDto {
-  @IsString() title: string;
-  @IsString() description: string;
-  @IsString() category: string;
-  @IsNumber() price: number;
-  @IsString() tokenAddress: string;
-  @IsNumber() minScore: number;
-  @IsArray() requiredCredentials: string[];
-  @IsNumber() deliveryDays: number;
+  @IsString()
+  @IsNotEmpty()
+  title: string;
+
+  @IsString()
+  @IsNotEmpty()
+  description: string;
+
+  @IsString()
+  @IsNotEmpty()
+  category: string;
+
+  @IsNumber()
+  @Min(0)
+  price: number;
+
+  @IsString()
+  @IsNotEmpty()
+  tokenAddress: string;
+
+  @IsNumber()
+  @Min(0)
+  @Max(1000)
+  minScore: number;
+
+  @IsArray()
+  requiredCredentials: string[];
+
+  @IsNumber()
+  @Min(1)
+  deliveryDays: number;
 }
 
 class PurchaseDto {
-  @IsString() listingId: string;
-  @IsString() zkProofHash: string;
+  @IsString()
+  @IsNotEmpty()
+  listingId: string;
+
+  @IsString()
+  @IsNotEmpty()
+  zkProofHash: string;
 }
 
 class FeedbackDto {
-  @IsString() orderId: string;
-  @IsNumber() rating: number;
-  @IsString() comment: string;
-  @IsString() @IsOptional() completionProof?: string;
+  @IsString()
+  @IsNotEmpty()
+  orderId: string;
+
+  @IsNumber()
+  @Min(1)
+  @Max(5)
+  rating: number;
+
+  @IsString()
+  @IsNotEmpty()
+  comment: string;
+
+  @IsString()
+  @IsOptional()
+  completionProof?: string;
 }
 
 @Controller('marketplace')
