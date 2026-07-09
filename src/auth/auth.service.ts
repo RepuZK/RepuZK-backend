@@ -22,13 +22,31 @@ export class AuthService {
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
+  /**
+   * Generate a one-time challenge nonce for the given Stellar address.
+   * The nonce is stored in Redis with a 5-minute TTL and must be signed
+   * by the corresponding private key to authenticate.
+   *
+   * @param address - The Stellar public key (G-address) requesting authentication.
+   * @returns An object containing the generated nonce string.
+   */
   async generateChallenge(address: string): Promise<{ nonce: string }> {
     const nonce = uuidv4();
     await this.redis.setex(`challenge:${address}`, CHALLENGE_TTL, nonce);
     return { nonce };
   }
 
-  async verifySignature(address: string, signature: string, nonce: string) {
+  /**
+   * Verify a Stellar Ed25519 signature against the stored challenge nonce.
+   * On success, the nonce is consumed (deleted) and a JWT + refresh token pair is issued.
+   *
+   * @param address   - The Stellar public key (G-address) that signed the nonce.
+   * @param signature - Base64-encoded Ed25519 signature of the nonce.
+   * @param nonce     - The plain-text nonce previously issued by {@link generateChallenge}.
+   * @returns A {@link TokenPair} containing `access_token` and `refresh_token`.
+   * @throws UnauthorizedException if the nonce is missing/expired or the signature is invalid.
+   */
+  async verifySignature(address: string, signature: string, nonce: string): Promise<TokenPair> {
     const stored = await this.redis.get(`challenge:${address}`);
     if (!stored || stored !== nonce) {
       throw new UnauthorizedException('Invalid or expired challenge');
@@ -50,6 +68,14 @@ export class AuthService {
     return this.issueTokenPair(address);
   }
 
+  /**
+   * Rotate a refresh token: validate the supplied token, invalidate it immediately
+   * to prevent replay attacks, and issue a fresh access + refresh token pair.
+   *
+   * @param refreshToken - The opaque refresh token previously issued by the auth flow.
+   * @returns A new {@link TokenPair} with a fresh access token and rotated refresh token.
+   * @throws UnauthorizedException if the refresh token is unknown or already used.
+   */
   async refresh(refreshToken: string): Promise<TokenPair> {
     const key = `${REFRESH_TOKEN_PREFIX}${refreshToken}`;
     const address = await this.redis.get(key);
@@ -62,6 +88,12 @@ export class AuthService {
     return this.issueTokenPair(address);
   }
 
+  /**
+   * Sign a new JWT access token and store a fresh refresh token in Redis.
+   *
+   * @param address - The Stellar public key to embed in the token payload.
+   * @returns A {@link TokenPair} with a signed JWT and a UUID refresh token.
+   */
   private async issueTokenPair(address: string): Promise<TokenPair> {
     const access_token = this.jwtService.sign({ sub: address, address });
     const refresh_token = uuidv4();
