@@ -10,6 +10,7 @@ import { MarketplaceModule } from './marketplace/marketplace.module';
 import { ReputationModule } from './reputation/reputation.module';
 import { StellarModule } from './stellar/stellar.module';
 import { RedisModule } from './common/redis/redis.module';
+import { HealthModule } from './health/health.module';
 import { Issuer } from './common/database/entities/issuer.entity';
 import { CredentialType } from './common/database/entities/credential-type.entity';
 import { Credential } from './common/database/entities/credential.entity';
@@ -42,6 +43,7 @@ import { Verification } from './common/database/entities/verification.entity';
     ProofModule,
     ReputationModule,
     MarketplaceModule,
+    HealthModule,
   ],
 })
 export class AppModule {}
