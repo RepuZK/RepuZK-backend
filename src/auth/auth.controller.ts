@@ -1,21 +1,40 @@
-import { Controller, Post, Body } from '@nestjs/common';
-import { IsString } from 'class-validator';
+import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import { ThrottlerGuard } from '@nestjs/throttler';
+import { IsString, IsNotEmpty } from 'class-validator';
 import { AuthService } from './auth.service';
 
 class ChallengeDto {
-  @IsString() address: string;
+  @IsString()
+  @IsNotEmpty()
+  address: string;
 }
 
 class VerifyDto {
-  @IsString() address: string;
-  @IsString() signature: string;
-  @IsString() nonce: string;
+  @IsString()
+  @IsNotEmpty()
+  address: string;
+
+  @IsString()
+  @IsNotEmpty()
+  signature: string;
+
+  @IsString()
+  @IsNotEmpty()
+  nonce: string;
 }
 
 class RefreshDto {
-  @IsString() refresh_token: string;
+  @IsString()
+  @IsNotEmpty()
+  refresh_token: string;
 }
 
+/**
+ * Auth controller — all endpoints are rate-limited via ThrottlerGuard.
+ * The per-IP limit (default 10 req / 60 s) is configurable through the
+ * THROTTLE_LIMIT and THROTTLE_TTL environment variables defined in AppModule.
+ */
+@UseGuards(ThrottlerGuard)
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}

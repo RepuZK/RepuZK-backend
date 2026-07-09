@@ -1,25 +1,51 @@
 import { Controller, Post, Get, Body, Param, UseGuards, Request } from '@nestjs/common';
-import { IsString, IsBoolean, IsOptional, IsObject } from 'class-validator';
+import { IsString, IsBoolean, IsOptional, IsObject, IsNotEmpty } from 'class-validator';
 import { IssuerService } from './issuer.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
 class RegisterIssuerDto {
-  @IsString() name: string;
-  @IsString() @IsOptional() description?: string;
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
 }
 
 class CredentialTypeDto {
-  @IsString() typeId: string;
-  @IsString() name: string;
-  @IsString() @IsOptional() description?: string;
-  @IsObject() @IsOptional() schema?: object;
-  @IsBoolean() @IsOptional() requiresZk?: boolean;
+  @IsString()
+  @IsNotEmpty()
+  typeId: string;
+
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @IsObject()
+  @IsOptional()
+  schema?: object;
+
+  @IsBoolean()
+  @IsOptional()
+  requiresZk?: boolean;
 }
 
 class IssueCredentialDto {
-  @IsString() userAddress: string;
-  @IsString() credentialType: string;
-  @IsObject() payload: object;
+  @IsString()
+  @IsNotEmpty()
+  userAddress: string;
+
+  @IsString()
+  @IsNotEmpty()
+  credentialType: string;
+
+  @IsObject()
+  payload: object;
 }
 
 @Controller('issuer')

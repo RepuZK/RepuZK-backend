@@ -1,13 +1,23 @@
 import { Controller, Get, Post, Param, Query, Body, UseGuards } from '@nestjs/common';
-import { IsString, IsNumber, IsArray, IsOptional } from 'class-validator';
+import { IsString, IsNumber, IsArray, IsOptional, IsNotEmpty, ArrayNotEmpty } from 'class-validator';
 import { ReputationService } from './reputation.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
 class VerifyOnChainDto {
-  @IsString() userAddress: string;
-  @IsNumber() requiredScore: number;
-  @IsArray() requiredCredentials: string[];
-  @IsString() @IsOptional() zkProofHash?: string;
+  @IsString()
+  @IsNotEmpty()
+  userAddress: string;
+
+  @IsNumber()
+  requiredScore: number;
+
+  @IsArray()
+  @ArrayNotEmpty()
+  requiredCredentials: string[];
+
+  @IsString()
+  @IsOptional()
+  zkProofHash?: string;
 }
 
 @Controller('reputation')
