@@ -13,7 +13,18 @@ import { StellarSubmitProcessor } from './stellar-submit.processor';
     TypeOrmModule.forFeature([Proof, Credential]),
     BullModule.registerQueue(
       { name: 'proof-generation' },
-      { name: 'stellar-submit' },
+      {
+        name: 'stellar-submit',
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 5000, // 5 s, 10 s, 20 s
+          },
+          removeOnComplete: true,
+          removeOnFail: false, // keep failed jobs for inspection
+        },
+      },
     ),
   ],
   providers: [ProofService, ProofGenerationProcessor, StellarSubmitProcessor],
