@@ -91,7 +91,7 @@ export class ProofController {
 
   @UseGuards(JwtAuthGuard)
   @Post('revoke')
-  revoke(@Body() dto: RevokeProofDto) {
-    return this.proofService.revokeProof(dto.proofHash);
+  revoke(@Request() req, @Body() dto: RevokeProofDto) {
+    return this.proofService.revokeProof(dto.proofHash, req.user.address);
   }
 }
