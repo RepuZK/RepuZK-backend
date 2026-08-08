@@ -5,6 +5,7 @@ import { NotFoundException } from '@nestjs/common';
 import { ProofService } from './proof.service';
 import { Proof } from '../common/database/entities/proof.entity';
 import { Credential } from '../common/database/entities/credential.entity';
+import { StellarService } from '../stellar/stellar.service';
 import { REDIS_CLIENT } from '../common/redis/redis.module';
 
 describe('ProofService', () => {
@@ -12,6 +13,7 @@ describe('ProofService', () => {
   let credRepo: { findOne: jest.Mock };
   let proofQueue: { add: jest.Mock };
   let redis: { setex: jest.Mock; get: jest.Mock };
+  let stellar: { revokeProof: jest.Mock };
 
   const CREDENTIAL = {
     id: 'cred-1',
@@ -25,6 +27,7 @@ describe('ProofService', () => {
     credRepo = { findOne: jest.fn() };
     proofQueue = { add: jest.fn().mockResolvedValue({ id: 'job-1' }) };
     redis = { setex: jest.fn().mockResolvedValue('OK'), get: jest.fn() };
+    stellar = { revokeProof: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -32,6 +35,7 @@ describe('ProofService', () => {
         { provide: getRepositoryToken(Proof), useValue: {} },
         { provide: getRepositoryToken(Credential), useValue: credRepo },
         { provide: getQueueToken('proof-generation'), useValue: proofQueue },
+        { provide: StellarService, useValue: stellar },
         { provide: REDIS_CLIENT, useValue: redis },
       ],
     }).compile();

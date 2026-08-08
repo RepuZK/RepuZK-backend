@@ -34,14 +34,27 @@ export class ReputationService {
 
   /**
    * Check whether a wallet's on-chain reputation score meets or exceeds the
-   * given threshold.
+   * given threshold. Reads the live score directly from the on-chain contract
+   * via {@link StellarService.getScoreValue} and caches the result in Redis
+   * for 60 seconds to reduce Soroban RPC load.
    *
    * @param address   - The Stellar public key to check.
    * @param threshold - Minimum score required (0–1000).
-   * @returns `true` if the score meets the threshold, `false` otherwise.
+   * @returns An object `{ address, score, threshold, passes }` where `passes`
+   *          is `true` when `score >= threshold`.
    */
-  async verifyThreshold(address: string, threshold: number): Promise<boolean> {
-    return this.stellar.verifyScoreThreshold(address, threshold);
+  async verifyThreshold(
+    address: string,
+    threshold: number,
+  ): Promise<{ address: string; score: number; threshold: number; passes: boolean }> {
+    const cacheKey = `verify:${address}:${threshold}`;
+    const cached = await this.redis.get(cacheKey);
+    if (cached) return JSON.parse(cached);
+
+    const score = await this.stellar.getScoreValue(address);
+    const result = { address, score, threshold, passes: score >= threshold };
+    await this.redis.setex(cacheKey, SCORE_TTL, JSON.stringify(result));
+    return result;
   }
 
   /**
