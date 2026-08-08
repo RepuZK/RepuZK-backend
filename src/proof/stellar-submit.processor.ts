@@ -35,6 +35,7 @@ export class StellarSubmitProcessor {
   @Process('submit')
   async handleSubmit(job: Job): Promise<void> {
     const {
+      jobId: proofJobId,
       userAddress,
       issuerAddress,
       proofHash,
@@ -48,8 +49,13 @@ export class StellarSubmitProcessor {
       circuitName,
     } = job.data;
 
+    /** Maximum attempts configured on the queue (default: 3). */
+    const maxAttempts: number = (job.opts as any)?.attempts ?? 3;
+    /** True when this is the final attempt – no more retries will follow. */
+    const isFinalAttempt = job.attemptsMade >= maxAttempts - 1;
+
     this.logger.log(
-      `[job ${job.id}] stellar-submit received for proof ${proofHash} (attempt ${job.attemptsMade + 1})`,
+      `[job ${job.id}] stellar-submit received for proof ${proofHash} (attempt ${job.attemptsMade + 1}/${maxAttempts})`,
     );
 
     // ── 1. De-duplication ────────────────────────────────────────────────────
@@ -58,6 +64,10 @@ export class StellarSubmitProcessor {
       this.logger.warn(
         `[job ${job.id}] Proof ${proofHash} already submitted (tx: ${alreadySubmitted}). Skipping.`,
       );
+      // Update status to complete so the polling endpoint reflects the real state
+      if (proofJobId) {
+        await this.setStatus(proofJobId, { status: 'complete', proofHash });
+      }
       return; // Acknowledge the job without doing any work
     }
 
@@ -84,6 +94,12 @@ export class StellarSubmitProcessor {
         );
       } else {
         this.logger.error(`[job ${job.id}] Failed to persist proof record`, persistErr);
+        if (isFinalAttempt && proofJobId) {
+          await this.setStatus(proofJobId, {
+            status: 'failed',
+            error: persistErr?.message ?? 'Failed to persist proof record',
+          });
+        }
         throw persistErr; // Trigger Bull retry
       }
     }
@@ -102,9 +118,17 @@ export class StellarSubmitProcessor {
       );
     } catch (stellarErr: any) {
       this.logger.error(
-        `[job ${job.id}] Stellar submission failed for proof ${proofHash} (attempt ${job.attemptsMade + 1})`,
+        `[job ${job.id}] Stellar submission failed for proof ${proofHash} (attempt ${job.attemptsMade + 1}/${maxAttempts})`,
         stellarErr,
       );
+      // On the final attempt, mark the proof job as failed in Redis so the
+      // status endpoint stops returning "pending" / "complete" and surfaces the error.
+      if (isFinalAttempt && proofJobId) {
+        await this.setStatus(proofJobId, {
+          status: 'failed',
+          error: stellarErr?.message ?? 'Stellar submission failed after maximum retries',
+        });
+      }
       throw stellarErr; // Bull will retry with exponential backoff
     }
 
@@ -114,8 +138,19 @@ export class StellarSubmitProcessor {
     // Keep dedup key for 7 days so we never re-submit even after a crash-restart
     await this.redis.setex(dedupKey(proofHash), 7 * 24 * 3600, txHash);
 
+    // Update the proof job status so callers see the confirmed tx hash
+    if (proofJobId) {
+      await this.setStatus(proofJobId, { status: 'complete', proofHash, txHash });
+    }
+
     this.logger.log(
       `[job ${job.id}] Proof ${proofHash} registered on-chain. txHash: ${txHash}`,
     );
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  private async setStatus(jobId: string | number, data: object): Promise<void> {
+    await this.redis.setex(`proof:status:${jobId}`, 3600, JSON.stringify(data));
   }
 }

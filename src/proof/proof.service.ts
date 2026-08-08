@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { Queue } from 'bull';
 import { Proof } from '../common/database/entities/proof.entity';
 import { Credential } from '../common/database/entities/credential.entity';
+import { StellarService } from '../stellar/stellar.service';
 import { REDIS_CLIENT } from '../common/redis/redis.module';
 import Redis from 'ioredis';
 
@@ -14,6 +15,7 @@ export class ProofService {
     @InjectRepository(Proof) private readonly proofRepo: Repository<Proof>,
     @InjectRepository(Credential) private readonly credRepo: Repository<Credential>,
     @InjectQueue('proof-generation') private readonly proofQueue: Queue,
+    private readonly stellar: StellarService,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
@@ -118,12 +120,29 @@ export class ProofService {
   }
 
   /**
-   * Mark a proof as revoked (sets `isActive = false`) in the database.
+   * Revoke a proof on-chain via the ReputationRegistry contract, then mark it
+   * inactive in the database. The DB update only happens after the Stellar
+   * transaction is confirmed, ensuring both states stay in sync.
    *
-   * @param proofHash - The hex proof hash of the proof to revoke.
+   * @param proofHash   - The hex proof hash of the proof to revoke.
+   * @param revokerAddress - Stellar address of the caller authorised to revoke.
+   * @returns An object containing the confirmed Stellar transaction hash.
+   * @throws NotFoundException if no proof with the given hash exists in the DB.
    */
-  async revokeProof(proofHash: string): Promise<void> {
+  async revokeProof(proofHash: string, revokerAddress: string): Promise<{ txHash: string }> {
+    const proof = await this.proofRepo.findOne({ where: { proofHash } });
+    if (!proof) throw new NotFoundException(`Proof not found: ${proofHash}`);
+
+    // Submit revocation on-chain; throws on failure (DB stays unchanged)
+    const txHash = await this.stellar.revokeProof(
+      Buffer.from(proofHash, 'hex'),
+      revokerAddress,
+    );
+
+    // Only mark inactive after the Soroban tx is confirmed
     await this.proofRepo.update({ proofHash }, { isActive: false });
+
+    return { txHash };
   }
 
   /**
