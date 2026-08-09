@@ -7,6 +7,7 @@ import { ProofService } from './proof.service';
 import { ProofController } from './proof.controller';
 import { ProofGenerationProcessor } from './proof-generation.processor';
 import { StellarSubmitProcessor } from './stellar-submit.processor';
+import { ProofIndexerService } from './proof-indexer.service';
 
 @Module({
   imports: [
@@ -27,7 +28,7 @@ import { StellarSubmitProcessor } from './stellar-submit.processor';
       },
     ),
   ],
-  providers: [ProofService, ProofGenerationProcessor, StellarSubmitProcessor],
+  providers: [ProofService, ProofGenerationProcessor, StellarSubmitProcessor, ProofIndexerService],
   controllers: [ProofController],
   exports: [ProofService],
 })

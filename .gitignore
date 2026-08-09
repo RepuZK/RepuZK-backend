@@ -8,6 +8,10 @@ src/proof/circuits/*.zkey
 src/proof/circuits/*.r1cs
 src/proof/circuits/*.sym
 
+# Scratch output of scripts/compile-circuits.sh (r1cs, ptau, intermediate
+# zkeys, wasm) — circuits-src/ holds the tracked .circom source instead.
+circuits-build/
+
 # Logs
 *.log
 npm-debug.log*

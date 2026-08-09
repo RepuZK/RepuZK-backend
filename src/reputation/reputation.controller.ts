@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Param, Query, Body, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { IsString, IsNumber, IsArray, IsOptional, IsNotEmpty, ArrayNotEmpty } from 'class-validator';
 import { ReputationService } from './reputation.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -20,6 +21,8 @@ class VerifyOnChainDto {
   zkProofHash?: string;
 }
 
+@ApiTags('reputation')
+@ApiBearerAuth()
 @Controller('reputation')
 export class ReputationController {
   constructor(private readonly reputationService: ReputationService) {}

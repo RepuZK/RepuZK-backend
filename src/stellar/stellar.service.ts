@@ -275,6 +275,42 @@ export class StellarService {
     ]);
   }
 
+  /**
+   * Fetch the current latest ledger sequence known to the RPC node.
+   *
+   * @returns The latest confirmed ledger sequence number.
+   */
+  async getLatestLedgerSequence(): Promise<number> {
+    const { sequence } = await this.server.getLatestLedger();
+    return sequence;
+  }
+
+  /**
+   * Poll `("proof", "reg")` events emitted by the ReputationRegistry contract's
+   * `register_proof` function, used by {@link ProofIndexerService} to keep the
+   * local database in sync with proofs registered on-chain through any path
+   * (not just this backend's own submission pipeline).
+   *
+   * @param startLedger - Ledger sequence to begin scanning from (inclusive).
+   * @returns The matching decoded events plus the RPC node's latest known ledger.
+   */
+  async getProofRegistrationEvents(
+    startLedger: number,
+  ): Promise<{ events: SorobanRpc.Api.EventResponse[]; latestLedger: number }> {
+    const response = await this.server.getEvents({
+      startLedger,
+      filters: [
+        {
+          type: 'contract',
+          contractIds: [this.reputationRegistryId],
+          topics: [[xdr.ScVal.scvSymbol('proof').toXDR('base64'), xdr.ScVal.scvSymbol('reg').toXDR('base64')]],
+        },
+      ],
+      limit: 100,
+    });
+    return { events: response.events, latestLedger: response.latestLedger };
+  }
+
   // ── Marketplace ───────────────────────────────────────────────────────────
 
   /**

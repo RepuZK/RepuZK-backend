@@ -4,6 +4,7 @@
 
 **Privacy-preserving reputation infrastructure for the Stellar ecosystem.**
 
+[![CI](https://github.com/RepuZK/RepuZK-backend/actions/workflows/ci.yml/badge.svg)](https://github.com/RepuZK/RepuZK-backend/actions/workflows/ci.yml)
 [![NestJS](https://img.shields.io/badge/NestJS-10-red?logo=nestjs)](https://nestjs.com)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)](https://www.typescriptlang.org)
 [![Stellar](https://img.shields.io/badge/Stellar-Testnet-black?logo=stellar)](https://stellar.org)
@@ -122,6 +123,12 @@ API is available at `http://localhost:3000/api`
 ## API Reference
 
 > All protected routes require `Authorization: Bearer <token>` header.
+> Interactive Swagger UI is served at `/docs` in non-production environments;
+> run `npm run docs:export` to write a static `openapi.json`.
+> List endpoints accept `?page=1&limit=20` (max `limit` is 100) and respond
+> with `{ data, total, page, limit }`. Every error response — validation,
+> not-found, or unexpected — has the same shape:
+> `{ statusCode, message, timestamp, path }`.
 
 ### Auth
 
@@ -144,7 +151,7 @@ API is available at `http://localhost:3000/api`
 | `POST` | `/api/issuer/register` | ✅ | Register caller as a credential issuer |
 | `POST` | `/api/issuer/credential-type` | ✅ | Define a new credential type |
 | `POST` | `/api/issuer/issue` | ✅ | Issue a credential to a user |
-| `GET` | `/api/issuer/all` | — | List all registered issuers |
+| `GET` | `/api/issuer/all` | — | List registered issuers (paginated) |
 | `GET` | `/api/issuer/:address` | — | Get issuer by Stellar address |
 
 ---
@@ -153,9 +160,11 @@ API is available at `http://localhost:3000/api`
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| `GET` | `/api/credential/user/:address` | — | List credentials for a wallet |
+| `GET` | `/api/credential/user/:address?active=true` | — | List credentials for a wallet (paginated). Each item includes `isExpired`; `?active=true` excludes expired ones |
 | `GET` | `/api/credential/:id` | — | Get credential by ID |
 | `POST` | `/api/credential/upload-ipfs` | ✅ | Pin credential payload to IPFS |
+
+A daily job flags credentials past their `expiresAt` as `isExpired = true`; the field is also computed live on read, so it's accurate even between cron runs.
 
 ---
 
@@ -165,7 +174,7 @@ API is available at `http://localhost:3000/api`
 |---|---|---|---|
 | `POST` | `/api/proof/generate` | ✅ | Queue a ZK proof generation job |
 | `GET` | `/api/proof/status/:jobId` | — | Poll job status |
-| `GET` | `/api/proof/user/:address` | — | List proofs for a wallet |
+| `GET` | `/api/proof/user/:address` | — | List proofs for a wallet (paginated) |
 | `POST` | `/api/proof/revoke` | ✅ | Revoke an active proof |
 
 **Generate proof request:**
@@ -209,6 +218,14 @@ API is available at `http://localhost:3000/api`
 
 ---
 
+### Health
+
+| Method | Endpoint | Auth | Response |
+|---|---|---|---|
+| `GET` | `/api/health` | — | `{ status: "ok", timestamp }` |
+
+---
+
 ## ZK Proof Flow
 
 ```
@@ -225,16 +242,34 @@ API is available at `http://localhost:3000/api`
 
 ### Supported Circuits
 
-Place `.wasm` + `.zkey` files in `src/proof/circuits/`:
+Circuit source lives in `circuits-src/`; run `scripts/compile-circuits.sh` to
+compile + run the Groth16 trusted setup and place the resulting `.wasm` +
+`.zkey` in `src/proof/circuits/` (gitignored — generate, don't commit binaries):
 
-| Circuit | Claim Proved | Private Input |
-|---|---|---|
-| `success_rate_gt_N` | success_rate ≥ N | `{ success_rate }` |
-| `jobs_completed_gt_N` | jobs_completed ≥ N | `{ jobs_completed }` |
-| `score_gt_N` | reputation score ≥ N | `{ score }` |
-| `disputes_zero` | disputes = 0 | `{ disputes }` |
-| `votes_gt_N` | governance votes ≥ N | `{ votes }` |
-| `gpa_gt_N` | GPA ≥ N | `{ gpa }` |
+| Circuit | Claim Proved | Private Input | Status |
+|---|---|---|---|
+| `success_rate_gt_95` | success_rate ≥ 95 | `{ success_rate }` | ✅ implemented (`circuits-src/success_rate_gt_95.circom`) |
+| `jobs_completed_gt_100` | jobs_completed ≥ 100 | `{ jobs_completed }` | ✅ implemented (`circuits-src/jobs_completed_gt_100.circom`) |
+| `disputes_zero` | disputes = 0 | `{ disputes }` | ✅ implemented (`circuits-src/disputes_zero.circom`) |
+| `score_gt_N` | reputation score ≥ N | `{ score }` | Not yet written — same `GreaterEqThan` pattern as `success_rate_gt_95` |
+| `votes_gt_N` | governance votes ≥ N | `{ votes }` | Not yet written |
+| `gpa_gt_N` | GPA ≥ N | `{ gpa }` | Not yet written |
+
+Each implemented circuit hard-fails witness generation (no proof can be
+produced) unless the private input actually satisfies the claim — verified
+directly: `success_rate: 98` produces a witness, `success_rate: 50` throws
+`Error: Assert Failed` at the `valid === 1` constraint.
+
+---
+
+## On-Chain Sync
+
+`ProofIndexerService` polls the ReputationRegistry's `("proof", "reg")`
+Soroban events every 30 seconds and inserts any proof registered on-chain
+through a path other than this backend's own generation pipeline (e.g. a
+different client calling `register_proof` directly), so the `proofs` table
+can't silently drift from on-chain truth. The scan cursor is cached in Redis;
+set `PROOF_INDEXER_START_LEDGER` to control where it starts on first boot.
 
 ---
 
@@ -272,27 +307,37 @@ verifications        — on-chain verification request log
 |---|---|---|
 | `challenge:{address}` | 5 min | Auth nonce |
 | `score:{address}` | 60 s | Cached reputation score |
+| `verify:{address}:{threshold}` | 60 s | Cached on-chain threshold check |
 | `proof:status:{jobId}` | 1 hr | ZK job status |
+| `indexer:proof:last_ledger` | — | On-chain event indexer scan cursor |
 
 ---
 
 ## Project Structure
 
 ```
+circuits-src/           .circom circuit source (tracked)
+circuits-build/         scratch output of compile-circuits.sh (gitignored)
+scripts/
+└── compile-circuits.sh Compiles circuits-src/ into src/proof/circuits/
+
 src/
 ├── main.ts
 ├── app.module.ts
 ├── auth/               Wallet auth + JWT
 ├── stellar/            Soroban contract clients
 ├── issuer/             Issuer registration + credential issuance
-├── credential/         Credential storage + IPFS upload
-├── proof/              ZK generation + on-chain submission
-│   └── circuits/       .wasm + .zkey files go here
+├── credential/         Credential storage + IPFS upload + expiry cron
+├── proof/              ZK generation, on-chain submission, event indexer
+│   └── circuits/       compiled .wasm + .zkey land here (gitignored)
 ├── reputation/         Score queries, badges, threshold checks
+├── health/             Liveness endpoint
 └── common/
     ├── database/       TypeORM entities
     ├── redis/          Global Redis client
-    └── guards/         JWT auth guard
+    ├── guards/         JWT auth guard
+    ├── filters/        Global exception filter
+    └── dto/            Shared pagination DTO
 ```
 
 ---

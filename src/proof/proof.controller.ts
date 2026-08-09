@@ -1,8 +1,10 @@
-import { Controller, Post, Get, Param, Body, UseGuards, Request, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Param, Query, Body, UseGuards, Request, HttpCode, HttpStatus } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { IsString, IsNumber, IsOptional, IsObject, IsNotEmpty } from 'class-validator';
 import { ProofService } from './proof.service';
 import { StellarService } from '../stellar/stellar.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 
 class GenerateProofDto {
   @IsString()
@@ -45,6 +47,8 @@ class RevokeProofDto {
   proofHash: string;
 }
 
+@ApiTags('proof')
+@ApiBearerAuth()
 @Controller('proof')
 export class ProofController {
   constructor(
@@ -85,8 +89,8 @@ export class ProofController {
   }
 
   @Get('user/:address')
-  findByUser(@Param('address') address: string) {
-    return this.proofService.findByUser(address);
+  findByUser(@Param('address') address: string, @Query() { page, limit }: PaginationQueryDto) {
+    return this.proofService.findByUser(address, page, limit);
   }
 
   @UseGuards(JwtAuthGuard)

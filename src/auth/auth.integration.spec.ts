@@ -13,7 +13,7 @@
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { JwtService, JwtModule } from '@nestjs/jwt';
+import { JwtModule } from '@nestjs/jwt';
 import { UnauthorizedException } from '@nestjs/common';
 import { Keypair } from '@stellar/stellar-sdk';
 import * as nacl from 'tweetnacl';

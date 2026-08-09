@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bull';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from './auth/auth.module';
 import { IssuerModule } from './issuer/issuer.module';
 import { CredentialModule } from './credential/credential.module';
@@ -47,6 +48,7 @@ import { Verification } from './common/database/entities/verification.entity';
         ],
       }),
     }),
+    ScheduleModule.forRoot(),
     RedisModule,
     StellarModule,
     AuthModule,
