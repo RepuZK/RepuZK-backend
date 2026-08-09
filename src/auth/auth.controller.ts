@@ -1,5 +1,6 @@
 import { Controller, Post, Body, UseGuards } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
+import { ApiTags } from '@nestjs/swagger';
 import { IsString, IsNotEmpty } from 'class-validator';
 import { AuthService } from './auth.service';
 
@@ -35,6 +36,7 @@ class RefreshDto {
  * THROTTLE_LIMIT and THROTTLE_TTL environment variables defined in AppModule.
  */
 @UseGuards(ThrottlerGuard)
+@ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}

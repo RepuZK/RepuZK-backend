@@ -6,6 +6,7 @@ import { Issuer } from '../common/database/entities/issuer.entity';
 import { CredentialType } from '../common/database/entities/credential-type.entity';
 import { Credential } from '../common/database/entities/credential.entity';
 import { StellarService } from '../stellar/stellar.service';
+import { PaginatedResult } from '../common/dto/pagination-query.dto';
 
 @Injectable()
 export class IssuerService {
@@ -115,11 +116,17 @@ export class IssuerService {
   }
 
   /**
-   * Retrieve all registered issuers from the database.
+   * Retrieve registered issuers from the database, paginated.
    *
-   * @returns An array of all {@link Issuer} records.
+   * @param page  - 1-indexed page number.
+   * @param limit - Page size (max 100).
+   * @returns A page of {@link Issuer} records with total count metadata.
    */
-  findAll(): Promise<Issuer[]> {
-    return this.issuerRepo.find();
+  async findAll(page = 1, limit = 20): Promise<PaginatedResult<Issuer>> {
+    const [data, total] = await this.issuerRepo.findAndCount({
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return { data, total, page, limit };
   }
 }

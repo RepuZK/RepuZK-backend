@@ -29,4 +29,7 @@ export class Credential {
 
   @Column({ nullable: true })
   expiresAt: Date;
+
+  @Column({ default: false })
+  isExpired: boolean;
 }

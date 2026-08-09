@@ -1,7 +1,9 @@
-import { Controller, Post, Get, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { IsString, IsBoolean, IsOptional, IsObject, IsNotEmpty } from 'class-validator';
 import { IssuerService } from './issuer.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 
 class RegisterIssuerDto {
   @IsString()
@@ -48,6 +50,8 @@ class IssueCredentialDto {
   payload: object;
 }
 
+@ApiTags('issuer')
+@ApiBearerAuth()
 @Controller('issuer')
 export class IssuerController {
   constructor(private readonly issuerService: IssuerService) {}
@@ -83,8 +87,8 @@ export class IssuerController {
   }
 
   @Get('all')
-  findAll() {
-    return this.issuerService.findAll();
+  findAll(@Query() { page, limit }: PaginationQueryDto) {
+    return this.issuerService.findAll(page, limit);
   }
 
   @Get(':address')

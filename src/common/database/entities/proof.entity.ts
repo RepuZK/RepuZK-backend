@@ -17,14 +17,22 @@ export class Proof {
   @Column({ unique: true })
   proofHash: string;
 
-  @Column({ type: 'jsonb' })
+  // Nullable: rows synced by ProofIndexerService from an on-chain event only
+  // know the proof hash, not the full off-chain SnarkJS proof object.
+  @Column({ type: 'jsonb', nullable: true })
   proofJson: object;
 
-  @Column({ type: 'jsonb' })
+  @Column({ type: 'jsonb', nullable: true })
   publicSignalsJson: object;
 
-  @Column()
+  // Nullable for the same reason as proofJson/publicSignalsJson above.
+  @Column({ nullable: true })
   circuitName: string;
+
+  // True for rows created by ProofIndexerService from an on-chain event
+  // rather than this backend's own generation pipeline.
+  @Column({ default: false })
+  syncedFromChain: boolean;
 
   @Column({ nullable: true })
   stellarTxHash: string;

@@ -7,6 +7,7 @@ import { Proof } from '../common/database/entities/proof.entity';
 import { Credential } from '../common/database/entities/credential.entity';
 import { StellarService } from '../stellar/stellar.service';
 import { REDIS_CLIENT } from '../common/redis/redis.module';
+import { PaginatedResult } from '../common/dto/pagination-query.dto';
 import Redis from 'ioredis';
 
 @Injectable()
@@ -146,12 +147,19 @@ export class ProofService {
   }
 
   /**
-   * List all proof records associated with a given wallet address.
+   * List proof records associated with a given wallet address, paginated.
    *
    * @param userAddress - The Stellar public key of the proof owner.
-   * @returns An array of {@link Proof} records belonging to the user.
+   * @param page        - 1-indexed page number.
+   * @param limit       - Page size (max 100).
+   * @returns A page of {@link Proof} records belonging to the user.
    */
-  findByUser(userAddress: string): Promise<Proof[]> {
-    return this.proofRepo.find({ where: { userAddress } });
+  async findByUser(userAddress: string, page = 1, limit = 20): Promise<PaginatedResult<Proof>> {
+    const [data, total] = await this.proofRepo.findAndCount({
+      where: { userAddress },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return { data, total, page, limit };
   }
 }

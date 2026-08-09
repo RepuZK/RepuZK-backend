@@ -1,25 +1,73 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { LessThan, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import axios from 'axios';
 import { Credential } from '../common/database/entities/credential.entity';
+import { PaginatedResult } from '../common/dto/pagination-query.dto';
+
+type CredentialWithExpiry = Credential & { isExpired: boolean };
 
 @Injectable()
 export class CredentialService {
+  private readonly logger = new Logger(CredentialService.name);
+
   constructor(
     @InjectRepository(Credential) private readonly credRepo: Repository<Credential>,
     private readonly config: ConfigService,
   ) {}
 
   /**
-   * Retrieve all credentials issued to the given wallet address.
+   * Retrieve credentials issued to the given wallet address, paginated.
+   *
+   * Each returned item carries a live-computed `isExpired` flag (true if
+   * `expiresAt` has passed, regardless of whether the daily cleanup cron has
+   * caught up to it yet).
    *
    * @param userAddress - The Stellar public key of the credential holder.
-   * @returns An array of {@link Credential} records with their associated issuer loaded.
+   * @param active      - When true, excludes credentials already marked expired.
+   * @param page        - 1-indexed page number.
+   * @param limit       - Page size (max 100).
+   * @returns A page of {@link Credential} records with their issuer relation loaded.
    */
-  findByUser(userAddress: string): Promise<Credential[]> {
-    return this.credRepo.find({ where: { userAddress }, relations: ['issuer'] });
+  async findByUser(
+    userAddress: string,
+    active = false,
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResult<CredentialWithExpiry>> {
+    const where = active ? { userAddress, isExpired: false } : { userAddress };
+    const [rows, total] = await this.credRepo.findAndCount({
+      where,
+      relations: ['issuer'],
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    const now = new Date();
+    const data = rows.map((c) => ({
+      ...c,
+      isExpired: c.isExpired || (c.expiresAt ? c.expiresAt < now : false),
+    }));
+
+    return { data, total, page, limit };
+  }
+
+  /**
+   * Daily maintenance job: flags credentials whose `expiresAt` has passed as
+   * `isExpired = true` so DB-level filtering (`?active=true`) stays cheap and
+   * doesn't need to recompute expiry on every read.
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async markExpiredCredentials(): Promise<void> {
+    const result = await this.credRepo.update(
+      { expiresAt: LessThan(new Date()), isExpired: false },
+      { isExpired: true },
+    );
+    if (result.affected) {
+      this.logger.log(`Marked ${result.affected} credential(s) as expired`);
+    }
   }
 
   /**

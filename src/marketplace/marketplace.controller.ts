@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Param, Query, Body, UseGuards, Request } from '@nestjs/common';
-import { IsString, IsNumber, IsArray, IsOptional, IsNotEmpty, ArrayNotEmpty, Min, Max } from 'class-validator';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { IsString, IsNumber, IsArray, IsOptional, IsNotEmpty, Min, Max } from 'class-validator';
 import { MarketplaceService } from './marketplace.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
@@ -66,6 +67,8 @@ class FeedbackDto {
   completionProof?: string;
 }
 
+@ApiTags('marketplace')
+@ApiBearerAuth()
 @Controller('marketplace')
 export class MarketplaceController {
   constructor(private readonly marketplaceService: MarketplaceService) {}
