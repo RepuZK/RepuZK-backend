@@ -61,7 +61,9 @@ const envValidationSchema = Joi.object({
   STRICT_THROTTLE_TTL: Joi.number().default(60),
   STRICT_THROTTLE_LIMIT: Joi.number().default(5),
 
-  PROOF_INDEXER_START_LEDGER: Joi.number().optional(),
+  // .empty('') so the commented-style "unset" convention used in
+  // .env.example (KEY=) validates instead of failing as "must be a number".
+  PROOF_INDEXER_START_LEDGER: Joi.number().empty('').optional(),
 
   CORS_ORIGIN: Joi.string().default('http://localhost:3000'),
 
