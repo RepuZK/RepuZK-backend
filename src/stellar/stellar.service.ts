@@ -443,4 +443,52 @@ export class StellarService {
       nativeToScVal(completionProof, { type: 'string' }),
     ]);
   }
+
+  /**
+   * Mark a paid order as in-progress on the Marketplace contract.
+   *
+   * @param seller  - Stellar address of the order's seller.
+   * @param orderId - Numeric ID of the order to start.
+   * @returns The Stellar transaction hash of the confirmed `start_order` call.
+   */
+  async startOrder(seller: string, orderId: bigint): Promise<string> {
+    return this.invoke(this.marketplaceId, 'start_order', [
+      new Address(seller).toScVal(),
+      nativeToScVal(orderId, { type: 'u64' }),
+    ]);
+  }
+
+  /**
+   * Mark an in-progress order complete and release escrow to the seller on
+   * the Marketplace contract.
+   *
+   * @param seller          - Stellar address of the order's seller.
+   * @param orderId         - Numeric ID of the order to complete.
+   * @param completionProof - 32-byte proof evidencing service completion.
+   * @returns The Stellar transaction hash of the confirmed `complete_order` call.
+   */
+  async completeOrder(seller: string, orderId: bigint, completionProof: Buffer): Promise<string> {
+    return this.invoke(this.marketplaceId, 'complete_order', [
+      new Address(seller).toScVal(),
+      nativeToScVal(orderId, { type: 'u64' }),
+      nativeToScVal(completionProof, { type: 'bytes' }),
+    ]);
+  }
+
+  /**
+   * Raise a dispute on an order on the Marketplace contract. The contract
+   * rejects this before the listing's delivery deadline has passed.
+   *
+   * @param buyer   - Stellar address of the order's buyer.
+   * @param orderId - Numeric ID of the order to dispute.
+   * @param reason  - Free-text reason for the dispute.
+   * @returns The Stellar transaction hash of the confirmed `raise_dispute` call.
+   */
+  async raiseDispute(buyer: string, orderId: bigint, reason: string): Promise<string> {
+    return this.invoke(this.marketplaceId, 'raise_dispute', [
+      new Address(buyer).toScVal(),
+      nativeToScVal(orderId, { type: 'u64' }),
+      nativeToScVal(reason, { type: 'string' }),
+    ]);
+  }
 }

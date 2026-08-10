@@ -1,8 +1,11 @@
 import { Controller, Get, Post, Param, Query, Body, UseGuards, Request } from '@nestjs/common';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
-import { IsString, IsNumber, IsArray, IsOptional, IsNotEmpty, Min, Max } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsString, IsNumber, IsArray, IsOptional, IsNotEmpty, IsInt, Min, Max } from 'class-validator';
 import { MarketplaceService } from './marketplace.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 
 class CreateListingDto {
   @IsString()
@@ -67,6 +70,29 @@ class FeedbackDto {
   completionProof?: string;
 }
 
+class CompleteOrderDto {
+  @IsString()
+  @IsOptional()
+  completionProof?: string;
+}
+
+class DisputeOrderDto {
+  @IsString()
+  @IsNotEmpty()
+  reason: string;
+}
+
+class ListingsQueryDto extends PaginationQueryDto {
+  @IsString()
+  @IsOptional()
+  category?: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @IsOptional()
+  minScore?: number;
+}
+
 @ApiTags('marketplace')
 @ApiBearerAuth()
 @Controller('marketplace')
@@ -74,8 +100,8 @@ export class MarketplaceController {
   constructor(private readonly marketplaceService: MarketplaceService) {}
 
   @Get('listings')
-  getListings(@Query('category') category?: string, @Query('minScore') minScore?: string) {
-    return this.marketplaceService.getListings(category, minScore ? parseInt(minScore, 10) : undefined);
+  getListings(@Query() { category, minScore, page, limit }: ListingsQueryDto) {
+    return this.marketplaceService.getListings(category, minScore, page, limit);
   }
 
   @Get('listings/:id')
@@ -83,7 +109,7 @@ export class MarketplaceController {
     return this.marketplaceService.getListing(id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ThrottlerGuard)
   @Post('create-listing')
   createListing(@Request() req, @Body() dto: CreateListingDto) {
     return this.marketplaceService.createListing(
@@ -94,7 +120,7 @@ export class MarketplaceController {
     );
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ThrottlerGuard)
   @Post('purchase')
   purchase(@Request() req, @Body() dto: PurchaseDto) {
     return this.marketplaceService.purchaseService(req.user.address, BigInt(dto.listingId), dto.zkProofHash);
@@ -102,21 +128,39 @@ export class MarketplaceController {
 
   @UseGuards(JwtAuthGuard)
   @Get('orders/buyer')
-  buyerOrders(@Request() req) {
-    return this.marketplaceService.getBuyerOrders(req.user.address);
+  buyerOrders(@Request() req, @Query() { page, limit }: PaginationQueryDto) {
+    return this.marketplaceService.getBuyerOrders(req.user.address, page, limit);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('orders/seller')
-  sellerOrders(@Request() req) {
-    return this.marketplaceService.getSellerOrders(req.user.address);
+  sellerOrders(@Request() req, @Query() { page, limit }: PaginationQueryDto) {
+    return this.marketplaceService.getSellerOrders(req.user.address, page, limit);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ThrottlerGuard)
   @Post('feedback')
   feedback(@Request() req, @Body() dto: FeedbackDto) {
     return this.marketplaceService.leaveFeedback(
       req.user.address, BigInt(dto.orderId), dto.rating, dto.comment, dto.completionProof,
     );
+  }
+
+  @UseGuards(JwtAuthGuard, ThrottlerGuard)
+  @Post('orders/:id/start')
+  startOrder(@Request() req, @Param('id') id: string) {
+    return this.marketplaceService.startOrder(req.user.address, BigInt(id));
+  }
+
+  @UseGuards(JwtAuthGuard, ThrottlerGuard)
+  @Post('orders/:id/complete')
+  completeOrder(@Request() req, @Param('id') id: string, @Body() dto: CompleteOrderDto) {
+    return this.marketplaceService.completeOrder(req.user.address, BigInt(id), dto.completionProof);
+  }
+
+  @UseGuards(JwtAuthGuard, ThrottlerGuard)
+  @Post('orders/:id/dispute')
+  disputeOrder(@Request() req, @Param('id') id: string, @Body() dto: DisputeOrderDto) {
+    return this.marketplaceService.raiseDispute(req.user.address, BigInt(id), dto.reason);
   }
 }

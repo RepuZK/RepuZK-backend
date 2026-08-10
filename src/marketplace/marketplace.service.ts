@@ -1,5 +1,18 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { StellarService } from '../stellar/stellar.service';
+import { PaginatedResult } from '../common/dto/pagination-query.dto';
+
+/**
+ * Slice an in-memory array into a page, matching the `{ data, total, page,
+ * limit }` shape used by the DB-backed list endpoints. The Marketplace
+ * Soroban contract has no on-chain pagination of its own — `get_active_listings`,
+ * `get_buyer_orders`, and `get_seller_orders` always return the full set — so
+ * pagination is applied here after the on-chain read.
+ */
+function paginate<T>(items: T[], page: number, limit: number): PaginatedResult<T> {
+  const start = (page - 1) * limit;
+  return { data: items.slice(start, start + limit), total: items.length, page, limit };
+}
 
 @Injectable()
 export class MarketplaceService {
@@ -32,21 +45,52 @@ export class MarketplaceService {
     return { txHash };
   }
 
-  async getListings(category?: string, minScore?: number) {
+  /**
+   * Fetch active marketplace listings, optionally filtered by category/minimum
+   * score, paginated.
+   *
+   * @param category - Optional category to filter by.
+   * @param minScore - Optional minimum `min_reputation_score` to filter by.
+   * @param page     - 1-indexed page number.
+   * @param limit    - Page size (max 100).
+   */
+  async getListings(
+    category?: string,
+    minScore?: number,
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResult<any>> {
     // Read active listings; filter applied client-side since contract returns all
-    return this.stellar.getActiveListings(category, minScore);
+    const listings = await this.stellar.getActiveListings(category, minScore);
+    return paginate(listings, page, limit);
   }
 
   async getListing(id: string) {
     return this.stellar.getListing(BigInt(id));
   }
 
-  async getBuyerOrders(address: string) {
-    return this.stellar.getBuyerOrders(address);
+  /**
+   * Fetch orders placed by the given buyer, paginated.
+   *
+   * @param address - Stellar address of the buyer.
+   * @param page    - 1-indexed page number.
+   * @param limit   - Page size (max 100).
+   */
+  async getBuyerOrders(address: string, page = 1, limit = 20): Promise<PaginatedResult<any>> {
+    const orders = await this.stellar.getBuyerOrders(address);
+    return paginate(orders, page, limit);
   }
 
-  async getSellerOrders(address: string) {
-    return this.stellar.getSellerOrders(address);
+  /**
+   * Fetch orders received by the given seller, paginated.
+   *
+   * @param address - Stellar address of the seller/provider.
+   * @param page    - 1-indexed page number.
+   * @param limit   - Page size (max 100).
+   */
+  async getSellerOrders(address: string, page = 1, limit = 20): Promise<PaginatedResult<any>> {
+    const orders = await this.stellar.getSellerOrders(address);
+    return paginate(orders, page, limit);
   }
 
   async leaveFeedback(
@@ -57,6 +101,29 @@ export class MarketplaceService {
     completionProof?: string,
   ) {
     const txHash = await this.stellar.leaveFeedback(reviewer, orderId, rating, comment, completionProof ?? '');
+    return { txHash };
+  }
+
+  async startOrder(seller: string, orderId: bigint) {
+    const txHash = await this.stellar.startOrder(seller, orderId);
+    return { txHash };
+  }
+
+  async completeOrder(seller: string, orderId: bigint, completionProof?: string) {
+    // The contract expects exactly 32 bytes; default to a zero-filled proof
+    // when the caller doesn't supply one (the field isn't checked against
+    // anything on-chain yet — see `_completion_proof` in marketplace.rs).
+    const proofHex = (completionProof ?? '').replace(/^0x/, '');
+    const proofBuf = proofHex ? Buffer.from(proofHex, 'hex') : Buffer.alloc(32);
+    if (proofBuf.length !== 32) {
+      throw new BadRequestException('completionProof must decode to exactly 32 bytes');
+    }
+    const txHash = await this.stellar.completeOrder(seller, orderId, proofBuf);
+    return { txHash };
+  }
+
+  async raiseDispute(buyer: string, orderId: bigint, reason: string) {
+    const txHash = await this.stellar.raiseDispute(buyer, orderId, reason);
     return { txHash };
   }
 }
