@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Cron } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
-import { scValToNative, SorobanRpc } from '@stellar/stellar-sdk';
+import { scValToNative, rpc } from '@stellar/stellar-sdk';
 import { Proof } from '../common/database/entities/proof.entity';
 import { StellarService } from '../stellar/stellar.service';
 import { REDIS_CLIENT } from '../common/redis/redis.module';
@@ -69,7 +69,7 @@ export class ProofIndexerService {
     return this.stellar.getLatestLedgerSequence();
   }
 
-  private async syncEvent(event: SorobanRpc.Api.EventResponse): Promise<void> {
+  private async syncEvent(event: rpc.Api.EventResponse): Promise<void> {
     const [owner, issuer, proofHashRaw, credentialType] = scValToNative(event.value) as [
       string,
       string,

@@ -2,7 +2,7 @@
  * Unit tests for StellarService — the client that signs and submits real
  * Soroban contract transactions.
  *
- * Only the network boundary (`SorobanRpc.Server`) is mocked; everything
+ * Only the network boundary (`rpc.Server`) is mocked; everything
  * else (Keypair, Contract, TransactionBuilder, Address, nativeToScVal,
  * scValToNative) is the real `@stellar/stellar-sdk`. This means the
  * transactions StellarService builds are decoded with the SDK's own XDR
@@ -29,8 +29,8 @@ jest.mock('@stellar/stellar-sdk', () => {
   const actual = jest.requireActual('@stellar/stellar-sdk');
   return {
     ...actual,
-    SorobanRpc: {
-      ...actual.SorobanRpc,
+    rpc: {
+      ...actual.rpc,
       Server: jest.fn().mockImplementation(() => mockServer),
     },
   };

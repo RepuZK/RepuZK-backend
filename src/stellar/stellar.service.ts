@@ -4,7 +4,7 @@ import {
   Contract,
   Keypair,
   Networks,
-  SorobanRpc,
+  rpc,
   TransactionBuilder,
   xdr,
   nativeToScVal,
@@ -16,7 +16,7 @@ import {
 @Injectable()
 export class StellarService {
   private readonly logger = new Logger(StellarService.name);
-  private readonly server: SorobanRpc.Server;
+  private readonly server: rpc.Server;
   private readonly adminKeypair: Keypair;
   private readonly network: string;
   private readonly networkPassphrase: string;
@@ -28,7 +28,7 @@ export class StellarService {
   constructor(private readonly config: ConfigService) {
     this.network = config.get('STELLAR_NETWORK', 'testnet');
     this.networkPassphrase = this.network === 'mainnet' ? Networks.PUBLIC : Networks.TESTNET;
-    this.server = new SorobanRpc.Server(
+    this.server = new rpc.Server(
       this.network === 'mainnet'
         ? 'https://mainnet.sorobanrpc.com'
         : 'https://soroban-testnet.stellar.org',
@@ -69,13 +69,13 @@ export class StellarService {
     // Poll for confirmation
     let getResult = await this.server.getTransaction(result.hash);
     let attempts = 0;
-    while (getResult.status === SorobanRpc.Api.GetTransactionStatus.NOT_FOUND && attempts < 20) {
+    while (getResult.status === rpc.Api.GetTransactionStatus.NOT_FOUND && attempts < 20) {
       await new Promise((r) => setTimeout(r, 1500));
       getResult = await this.server.getTransaction(result.hash);
       attempts++;
     }
 
-    if (getResult.status !== SorobanRpc.Api.GetTransactionStatus.SUCCESS) {
+    if (getResult.status !== rpc.Api.GetTransactionStatus.SUCCESS) {
       throw new Error(`Transaction failed: ${getResult.status}`);
     }
 
@@ -104,8 +104,8 @@ export class StellarService {
       .build();
 
     const sim = await this.server.simulateTransaction(tx);
-    if (!SorobanRpc.Api.isSimulationSuccess(sim)) throw new Error('Simulation failed');
-    const retVal = (sim as SorobanRpc.Api.SimulateTransactionSuccessResponse).result?.retval;
+    if (!rpc.Api.isSimulationSuccess(sim)) throw new Error('Simulation failed');
+    const retVal = (sim as rpc.Api.SimulateTransactionSuccessResponse).result?.retval;
     return retVal ? scValToNative(retVal) : null;
   }
 
@@ -296,7 +296,7 @@ export class StellarService {
    */
   async getProofRegistrationEvents(
     startLedger: number,
-  ): Promise<{ events: SorobanRpc.Api.EventResponse[]; latestLedger: number }> {
+  ): Promise<{ events: rpc.Api.EventResponse[]; latestLedger: number }> {
     const response = await this.server.getEvents({
       startLedger,
       filters: [
