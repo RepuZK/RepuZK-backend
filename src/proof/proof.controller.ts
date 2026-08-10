@@ -1,4 +1,5 @@
 import { Controller, Post, Get, Param, Query, Body, UseGuards, Request, HttpCode, HttpStatus } from '@nestjs/common';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { IsString, IsNumber, IsOptional, IsObject, IsNotEmpty } from 'class-validator';
 import { ProofService } from './proof.service';
@@ -56,7 +57,7 @@ export class ProofController {
     private readonly stellarService: StellarService,
   ) {}
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ThrottlerGuard)
   @Post('generate')
   @HttpCode(HttpStatus.ACCEPTED)
   generate(@Body() dto: GenerateProofDto) {
@@ -93,7 +94,7 @@ export class ProofController {
     return this.proofService.findByUser(address, page, limit);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ThrottlerGuard)
   @Post('revoke')
   revoke(@Request() req, @Body() dto: RevokeProofDto) {
     return this.proofService.revokeProof(dto.proofHash, req.user.address);

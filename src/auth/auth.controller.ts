@@ -1,5 +1,5 @@
 import { Controller, Post, Body, UseGuards } from '@nestjs/common';
-import { ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerGuard, SkipThrottle } from '@nestjs/throttler';
 import { ApiTags } from '@nestjs/swagger';
 import { IsString, IsNotEmpty } from 'class-validator';
 import { AuthService } from './auth.service';
@@ -34,8 +34,11 @@ class RefreshDto {
  * Auth controller — all endpoints are rate-limited via ThrottlerGuard.
  * The per-IP limit (default 10 req / 60 s) is configurable through the
  * THROTTLE_LIMIT and THROTTLE_TTL environment variables defined in AppModule.
+ * The stricter 'strict' throttler (reserved for expensive/chain-writing
+ * endpoints elsewhere) is skipped here so auth behaviour is unchanged.
  */
 @UseGuards(ThrottlerGuard)
+@SkipThrottle({ strict: true })
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {

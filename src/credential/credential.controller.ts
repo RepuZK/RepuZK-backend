@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Param, Query, Body, UseGuards } from '@nestjs/common';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsBoolean, IsOptional, IsString, IsNotEmpty } from 'class-validator';
@@ -35,7 +36,7 @@ export class CredentialController {
     return this.credentialService.findById(id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ThrottlerGuard)
   @Post('upload-ipfs')
   uploadIpfs(@Body() dto: UploadIpfsDto) {
     return this.credentialService.uploadToIpfs(dto.credentialId);
