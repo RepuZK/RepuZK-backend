@@ -24,14 +24,19 @@ what's done and what's still open — not a contributor board.
   had no HTTP endpoint.
 - `stellar/` (the on-chain client that signs and submits real transactions)
   and `marketplace/` now have unit test coverage; previously zero.
+- **Test coverage for `reputation/`, `issuer/`, and `health/`** — all three
+  had zero tests; now covered (cache hit/miss behavior and score-threshold
+  logic for `reputation`, registration/hashing/pagination for `issuer`,
+  liveness shape for `health`). `npm test` no longer passes with
+  `--passWithNoTests`, so an accidentally-emptied suite now fails CI.
+- **IPFS credential payload was plaintext.** `credential/upload-ipfs` now
+  encrypts the payload (AES-256-GCM, key derived per-credential via HKDF
+  from `CREDENTIAL_ENCRYPTION_KEY`) before pinning to Pinata, so the raw
+  data isn't readable by anyone who only has the CID — see
+  `src/credential/credential-encryption.ts`.
 
 ## Genuinely open
 
-- **Test coverage**: `reputation/`, `issuer/`, and `health/` modules still
-  have no tests.
-- **IPFS credential payload**: `credential/upload-ipfs` sends the payload to
-  Pinata as plaintext JSON; client-side encryption before upload was part of
-  the original design intent and isn't implemented.
 - **Session storage**: the frontend stores the JWT in `localStorage`
   (XSS-exfiltration risk). Moving to an httpOnly cookie would require
   coordinated backend + frontend changes (CORS `credentials`, cookie
