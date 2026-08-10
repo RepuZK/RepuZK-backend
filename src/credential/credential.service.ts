@@ -6,6 +6,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import axios from 'axios';
 import { Credential } from '../common/database/entities/credential.entity';
 import { PaginatedResult } from '../common/dto/pagination-query.dto';
+import { encryptCredentialPayload } from './credential-encryption';
 
 type CredentialWithExpiry = Credential & { isExpired: boolean };
 
@@ -84,8 +85,16 @@ export class CredentialService {
   }
 
   /**
-   * Pin the credential's payload JSON to IPFS via Pinata and store the resulting CID
-   * back on the credential record.
+   * Encrypt the credential's payload JSON (AES-256-GCM, key derived from
+   * `CREDENTIAL_ENCRYPTION_KEY` + the credential ID) and pin the ciphertext
+   * to IPFS via Pinata, storing the resulting CID back on the credential
+   * record.
+   *
+   * IPFS is a public, content-addressed store — anyone who obtains the CID
+   * can fetch whatever was pinned there. Encrypting before pinning means the
+   * raw credential data (success rates, job counts, etc.) isn't readable by
+   * anyone who only has the CID; decryption requires the server's master
+   * key, matching the project's privacy-preserving design intent.
    *
    * @param credentialId - UUID of the credential whose payload should be pinned.
    * @returns An object containing the IPFS content identifier (`cid`).
@@ -97,10 +106,17 @@ export class CredentialService {
     const apiKey = this.config.get('IPFS_API_KEY');
     const apiSecret = this.config.get('IPFS_API_SECRET');
     const apiUrl = this.config.get('IPFS_API_URL', 'https://api.pinata.cloud');
+    const encryptionKey = this.config.get<string>('CREDENTIAL_ENCRYPTION_KEY');
+
+    const encrypted = encryptCredentialPayload(
+      encryptionKey,
+      credentialId,
+      JSON.stringify(credential.payloadJson),
+    );
 
     const { data } = await axios.post(
       `${apiUrl}/pinning/pinJSONToIPFS`,
-      { pinataContent: credential.payloadJson, pinataMetadata: { name: credentialId } },
+      { pinataContent: encrypted, pinataMetadata: { name: credentialId } },
       { headers: { pinata_api_key: apiKey, pinata_secret_api_key: apiSecret } },
     );
 

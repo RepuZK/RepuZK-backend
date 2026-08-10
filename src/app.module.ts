@@ -48,6 +48,11 @@ const envValidationSchema = Joi.object({
   IPFS_API_KEY: Joi.string().allow('').optional(),
   IPFS_API_SECRET: Joi.string().allow('').optional(),
 
+  // 32-byte key, hex-encoded (64 hex chars), used to derive a per-credential
+  // AES-256-GCM key for encrypting payloads before they're pinned to IPFS.
+  // Generate with: openssl rand -hex 32
+  CREDENTIAL_ENCRYPTION_KEY: Joi.string().hex().length(64).required(),
+
   THROTTLE_TTL: Joi.number().default(60),
   THROTTLE_LIMIT: Joi.number().default(10),
 

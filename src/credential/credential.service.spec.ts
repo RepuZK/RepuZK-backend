@@ -1,23 +1,37 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
+import { randomBytes } from 'crypto';
+import axios from 'axios';
 import { CredentialService } from './credential.service';
 import { Credential } from '../common/database/entities/credential.entity';
 
+jest.mock('axios');
+const mockedAxios = axios as jest.Mocked<typeof axios>;
+
 describe('CredentialService', () => {
   let service: CredentialService;
-  let credRepo: { findAndCount: jest.Mock; update: jest.Mock };
+  let credRepo: { findAndCount: jest.Mock; update: jest.Mock; findOne: jest.Mock };
+  const encryptionKey = randomBytes(32).toString('hex');
 
   const ISSUER = { stellarAddress: 'GISSUER' };
 
   beforeEach(async () => {
-    credRepo = { findAndCount: jest.fn(), update: jest.fn() };
+    credRepo = { findAndCount: jest.fn(), update: jest.fn(), findOne: jest.fn() };
+    mockedAxios.post.mockReset();
+
+    const config: Record<string, string> = {
+      IPFS_API_KEY: 'key',
+      IPFS_API_SECRET: 'secret',
+      IPFS_API_URL: 'https://api.pinata.cloud',
+      CREDENTIAL_ENCRYPTION_KEY: encryptionKey,
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CredentialService,
         { provide: getRepositoryToken(Credential), useValue: credRepo },
-        { provide: ConfigService, useValue: { get: jest.fn() } },
+        { provide: ConfigService, useValue: { get: (k: string, fallback?: string) => config[k] ?? fallback } },
       ],
     }).compile();
 
@@ -83,6 +97,42 @@ describe('CredentialService', () => {
       credRepo.update.mockResolvedValue({ affected: 0 });
 
       await expect(service.markExpiredCredentials()).resolves.not.toThrow();
+    });
+  });
+
+  describe('uploadToIpfs', () => {
+    it('pins encrypted ciphertext, never the raw payload, and stores the returned CID', async () => {
+      const credential = {
+        id: 'cred-1',
+        payloadJson: { success_rate: 98, jobs: 250 },
+        issuer: ISSUER,
+      };
+      credRepo.findOne.mockResolvedValue(credential);
+      mockedAxios.post.mockResolvedValue({ data: { IpfsHash: 'Qm123' } });
+
+      const result = await service.uploadToIpfs('cred-1');
+
+      expect(mockedAxios.post).toHaveBeenCalledTimes(1);
+      const [, body] = mockedAxios.post.mock.calls[0] as [
+        string,
+        { pinataContent: Record<string, string> },
+      ];
+      const pinned = JSON.stringify(body.pinataContent);
+
+      // The plaintext claim value must never appear in what's sent to Pinata.
+      expect(pinned).not.toContain('98');
+      expect(pinned).not.toContain('success_rate');
+      // What is sent must be the {iv, ciphertext, authTag} shape.
+      expect(body.pinataContent).toEqual(
+        expect.objectContaining({
+          iv: expect.any(String),
+          ciphertext: expect.any(String),
+          authTag: expect.any(String),
+        }),
+      );
+
+      expect(credRepo.update).toHaveBeenCalledWith('cred-1', { ipfsCid: 'Qm123' });
+      expect(result).toEqual({ cid: 'Qm123' });
     });
   });
 });
